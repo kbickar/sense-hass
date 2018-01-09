@@ -10,23 +10,20 @@ import requests.exceptions
 import voluptuous as vol
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import (CONF_API_KEY)
+from homeassistant.const import (CONF_EMAIL, CONF_PASSWORD)
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.dt as dt_util
 from sense_api import Senseable
 
-REQUIREMENTS = []
+REQUIREMENTS = ['sense-energy==0.1']
 
 _LOGGER = logging.getLogger(__name__)
 
-CONF_EMAIL = 'email'
-CONF_PASSWORD = 'password'
-
-ACTIVE_NAME = 'Energy Usage'
-ACTIVE_SOLAR_NAME = 'Solar Energy Generation'
-DAILY_NAME = 'Daily Energy Usage'
+ACTIVE_NAME = "Energy Usage"
+ACTIVE_SOLAR_NAME = "Solar Energy Generation"
+DAILY_NAME = "Daily Energy Usage"
 
 ACTIVE_TYPE = 'active'
 ACTIVE_SOLAR_TYPE = 'solar'
@@ -48,7 +45,11 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     username = config.get(CONF_EMAIL)
     password = config.get(CONF_PASSWORD)
 
-    data = Senseable(username, password)
+    try:
+        data = Senseable(username, password)
+    except:
+        _LOGGER.critical("Connection/Authentication Failure")
+        return
 
     @Throttle(MIN_TIME_BETWEEN_DAILY_UPDATES)
     def update_daily():
@@ -60,15 +61,13 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         """Update the active power usage."""
         data.get_realtime()
 
-    update_daily()
-    update_active()
-
-    # Active power sensor
-    add_devices(
-        [Sense(data, ACTIVE_NAME, ACTIVE_TYPE, update_active),
-         Sense(data, ACTIVE_SOLAR_NAME, ACTIVE_SOLAR_TYPE, update_active)])
-    # Daily power sensor
-    add_devices([Sense(data, DAILY_NAME, DAILY_TYPE, update_daily)])
+    add_devices([
+        # Active power usage
+        Sense(data, ACTIVE_NAME, ACTIVE_TYPE, update_active),
+        # Active power generation
+        Sense(data, ACTIVE_SOLAR_NAME, ACTIVE_SOLAR_TYPE, update_active),
+        # Daily Power
+        Sense(data, DAILY_NAME, DAILY_TYPE, update_daily)])
 
 
 
